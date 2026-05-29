@@ -26,10 +26,20 @@ Written in **Swift + AppKit + Core Animation**, with **no runtime dependencies**
 - 🔒 Locks out system keys to prevent accidental exits (see below)
 - ⚙️ Options dialog: sound mode, cursor (Arrow/Hand), font, faces, fade + fade-delay, mouse-draw, force-uppercase, clear-after count, transparent background
 
+## Install (from a release)
+
+Download the `.dmg` from [Releases](../../releases/latest), open it, and drag **BabySmash** onto **Applications**.
+
+The app is ad-hoc signed but **not notarized** by Apple (notarization needs a paid Apple Developer account), so Gatekeeper blocks the first launch. Approve it once, any of these ways:
+
+- **Easiest (Terminal):** `xattr -dr com.apple.quarantine /Applications/BabySmash.app`, then open it.
+- **macOS 15 (Sequoia):** double-click it once (it's blocked), then open **System Settings → Privacy & Security**, scroll to the BabySmash note, and click **Open Anyway**. Sequoia removed the one-click "Open" from the first dialog.
+- **macOS 13–14:** right-click the app → **Open** → **Open**.
+
 ## Build & run
 
 ```bash
-# Build and assemble BabySmash.app
+# Build and assemble BabySmash.app + BabySmash-macOS-arm64.dmg
 ./package.sh
 
 # Run it
