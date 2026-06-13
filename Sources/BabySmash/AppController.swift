@@ -19,6 +19,9 @@ final class AppController: NSObject, NSWindowDelegate {
     private var focusTimer: Timer?
     private var optionsWindow: OptionsWindow?
     private var kioskEnabled = false
+    // True once the global event tap is installed. When active it is the only
+    // path key events take (the window-level fallback is then suppressed).
+    private var tapActive = false
 
     private var testMode: Bool {
         ProcessInfo.processInfo.environment["BABYSMASH_NO_KIOSK"] == "1"
@@ -38,7 +41,16 @@ final class AppController: NSObject, NSWindowDelegate {
 
         if kiosk {
             KeyLock.enableKiosk()
-            KeyLock.startEventTap()
+            KeyLock.keyDownHandler = { [weak self] event in
+                self?.handleKeyDown(event)
+            }
+            KeyLock.escapeHandler = { [weak self] in
+                self?.handleEscape()
+            }
+            KeyLock.shapeHandler = { [weak self] in
+                self?.process(rawCharacter: "*") // a plain shape
+            }
+            tapActive = KeyLock.startEventTap()
             kioskEnabled = true
             startFocusTimer()
         }
@@ -108,15 +120,28 @@ final class AppController: NSObject, NSWindowDelegate {
 
     // MARK: - Key handling
 
+    /// Fallback path used only when the global tap is NOT installed (Accessibility
+    /// permission was not granted). When the tap is active it consumes key events
+    /// before any window sees them, so this would double-process; suppress it.
+    func handleKeyDownFromWindow(_ event: NSEvent) {
+        guard !tapActive else { return }
+        handleKeyDown(event)
+    }
+
+    /// Double-press Escape to quit (deliberate, so one tap won't exit). Shared by
+    /// the tap's dedicated escape path and the window fallback.
+    func handleEscape() {
+        let now = Date()
+        if now.timeIntervalSince(lastEscape) <= 1.0 {
+            quit()
+        } else {
+            lastEscape = now
+        }
+    }
+
     func handleKeyDown(_ event: NSEvent) {
-        // Double-press Escape to quit (deliberate, so one tap won't exit).
         if event.keyCode == 53 {
-            let now = Date()
-            if now.timeIntervalSince(lastEscape) <= 1.0 {
-                quit()
-            } else {
-                lastEscape = now
-            }
+            handleEscape()
             return
         }
 
@@ -128,10 +153,12 @@ final class AppController: NSObject, NSWindowDelegate {
             return
         }
 
-        // Prefer the unmodified glyph; fall back to the option-modified one so a
-        // key still produces a figure even with Option held.
-        guard let raw = event.charactersIgnoringModifiers?.first
-                ?? event.characters?.first else { return }
+        // Prefer the unmodified glyph; fall back to the option-modified one. If a
+        // key carries no character at all (some media/hardware keys), still spawn
+        // a shape so EVERY key press produces something on screen.
+        let raw: Character = event.charactersIgnoringModifiers?.first
+                ?? event.characters?.first
+                ?? "*"
         process(rawCharacter: raw)
     }
 
@@ -231,11 +258,14 @@ final class AppController: NSObject, NSWindowDelegate {
         if kioskEnabled {
             for window in windows { window.level = .normal }
         }
+        // Stop swallowing keys so the dialog's fields, Return, and Escape work.
+        KeyLock.passthrough = true
         let options = OptionsWindow()
         optionsWindow = options
         options.onClose = { [weak self] in
             guard let self else { return }
             self.optionsWindow = nil
+            KeyLock.passthrough = false // resume full keyboard lockdown
             self.applySettings() // cursor + transparent background apply live
             if self.kioskEnabled {
                 let shield = NSWindow.Level(rawValue: Int(CGShieldingWindowLevel()))

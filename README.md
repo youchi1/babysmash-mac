@@ -60,19 +60,24 @@ BABYSMASH_NO_KIOSK=1 .build/debug/BabySmash   # ordinary window, no kiosk/key-lo
 | Any key | Show shapes / letters / numbers |
 | `Esc` `Esc` (twice within 1s) | Quit |
 | `⌥` `O` (Option+O) | Options dialog |
+| Triple-click top-left corner | Emergency quit (mouse only) |
 
-Quitting requires a deliberate double-press of Escape so a single accidental tap won't end the game.
+Quitting requires a deliberate double-press of Escape so a single accidental tap won't end the game. The triple-click corner is a keyboard-independent escape hatch: mouse events are never intercepted, so it always works even if something goes wrong with key handling.
 
 ## Locking out system keys
 
 Two layers, both standard macOS mechanisms:
 
 1. **Kiosk mode** (no permission needed): `NSApplication` presentation options hide the Dock and menu bar and block Cmd+Tab app switching, the force-quit panel, log out, and hiding the app.
-2. **Global shortcut blocking** (optional): a CoreGraphics event tap swallows every Command/Control-modified key system-wide (Cmd+Q, Spotlight, Cmd+W, Ctrl+Arrow, …). This needs **Accessibility permission**:
+2. **Total keyboard lockdown** (optional): a CoreGraphics event tap becomes the only consumer of the keyboard. It swallows *every* key-down, key-up, modifier change, and the media/hardware keys (volume, brightness, play/pause) system-wide, so nothing reaches the underlying app or the system. The only keys that act are BabySmash's own (ESC twice to quit, ⌥O for options); the game receives keys straight from the tap. This needs **Accessibility permission**:
 
    *System Settings → Privacy & Security → Accessibility → enable BabySmash*, then relaunch.
 
-   Until granted, the game still runs and kiosk mode still blocks the most common exits.
+   Until granted, the game still runs and kiosk mode still blocks the most common exits, but individual keys (Spotlight, media keys, etc.) are no longer fully blocked.
+
+   Residual edge cases macOS handles below the event tap: multi-finger trackpad swipes (Mission Control / spaces) and double-pressing the **Fn / 🌐 globe** key for dictation. Disable the latter under *System Settings → Keyboard → "Press 🌐 key to"* → **Do Nothing** if needed.
+
+**Safety:** the lockdown is gated on BabySmash being the active app. If it ever loses focus (a system dialog, a hang, getting hidden), the keyboard unlocks automatically so you can never end up invisibly trapped behind a global lock. And the triple-click top-left corner always quits, since mouse events are never intercepted.
 
 ## Environment flags (development)
 

@@ -20,6 +20,11 @@ final class SmashView: NSView {
     // the figure instead of drawing.
     private var suppressDrag = false
 
+    // Timestamps of recent clicks in the top-left corner. Three within the window
+    // quit the app: a keyboard-independent emergency exit, since mouse events are
+    // never intercepted by the event tap.
+    private var cornerClickTimes: [Date] = []
+
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
@@ -89,13 +94,13 @@ final class SmashView: NSView {
 
     func showInfoLabel() {
         let text = CATextLayer()
-        text.string = "BabySmash!\nPress any key to start!\nPress ESC twice to exit, ⌥O for options"
+        text.string = "BabySmash!\nPress any key to start!\nPress ESC twice to exit, ⌥O for options\nStuck? Triple-click the top-left corner to quit"
         text.fontSize = 22
         text.foregroundColor = NSColor(white: 0.3, alpha: 1).cgColor
         text.alignmentMode = .left
         text.isWrapped = true
         text.contentsScale = window?.backingScaleFactor ?? 2
-        text.frame = CGRect(x: 24, y: bounds.height - 130, width: 700, height: 110)
+        text.frame = CGRect(x: 24, y: bounds.height - 160, width: 760, height: 140)
         text.autoresizingMask = [.layerMaxXMargin, .layerMinYMargin]
         layer?.addSublayer(text)
         infoLayer = text
@@ -211,6 +216,26 @@ final class SmashView: NSView {
 
     // MARK: - Mouse
 
+    /// Emergency exit that does not depend on the keyboard at all: three clicks
+    /// in the top-left corner within 1.5s quit the app. The corner zone is small
+    /// so a child smashing the middle of the screen won't trigger it. (The view is
+    /// not flipped, so the top edge is the high-y side.)
+    private func checkCornerQuit(_ point: CGPoint) -> Bool {
+        let zone: CGFloat = 70
+        let inCorner = point.x <= zone && point.y >= bounds.height - zone
+        guard inCorner else { cornerClickTimes.removeAll(); return false }
+
+        let now = Date()
+        cornerClickTimes = cornerClickTimes.filter { now.timeIntervalSince($0) <= 1.5 }
+        cornerClickTimes.append(now)
+        if cornerClickTimes.count >= 3 {
+            cornerClickTimes.removeAll()
+            controller?.quit()
+            return true
+        }
+        return false
+    }
+
     private func figureAt(_ point: CGPoint) -> Figure? {
         for figure in figures.reversed() where figure.layer.opacity > 0.1 {
             let half = CGSize(width: figure.size.width / 2, height: figure.size.height / 2)
@@ -224,6 +249,7 @@ final class SmashView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         let point = convert(event.locationInWindow, from: nil)
+        if checkCornerQuit(point) { return }
         if let figure = figureAt(point) {
             applyClickAnimation(figure.layer)
             controller?.playLaugh()

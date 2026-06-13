@@ -26,8 +26,10 @@ final class SmashWindow: NSWindow {
     override var canBecomeMain: Bool { true }
 
     override func keyDown(with event: NSEvent) {
-        // Handle everything ourselves so unhandled keys don't beep.
-        controller?.handleKeyDown(event)
+        // Handle everything ourselves so unhandled keys don't beep. This is the
+        // fallback for when the global event tap is not installed; when the tap
+        // is active it consumes keys before they ever reach the window.
+        controller?.handleKeyDownFromWindow(event)
     }
 
     // Do not let the default Cmd+Q/Cmd+W reach AppKit even without the event tap.

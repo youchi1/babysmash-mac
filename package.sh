@@ -8,7 +8,7 @@ cd "$HERE"
 
 APP_NAME="BabySmash"
 DISPLAY_NAME="BabySmash!"
-VERSION="1.0.0"
+VERSION="1.1.0"
 BUNDLE_ID="com.hanselman.babysmash"
 ICON_SRC="Resources/babysmash.png"
 
